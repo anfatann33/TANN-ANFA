@@ -1,0 +1,243 @@
+{
+  "categories": [
+    {
+      "id": "chatgpt",
+      "name": "ChatGPT",
+      "nameKhmer": "ChatGPT",
+      "row": 1,
+      "col": 1,
+      "isActive": true,
+      "sortOrder": 1
+    },
+    {
+      "id": "gemini",
+      "name": "Gemini",
+      "nameKhmer": "Gemini",
+      "row": 1,
+      "col": 2,
+      "isActive": true,
+      "sortOrder": 2
+    },
+    {
+      "id": "grok",
+      "name": "Grok",
+      "nameKhmer": "Grok",
+      "row": 1,
+      "col": 3,
+      "isActive": true,
+      "sortOrder": 3
+    },
+    {
+      "id": "codex_api",
+      "name": "Codex API",
+      "nameKhmer": "Codex API",
+      "row": 2,
+      "col": 1,
+      "isActive": true,
+      "sortOrder": 4
+    },
+    {
+      "id": "claude",
+      "name": "Claude",
+      "nameKhmer": "Claude",
+      "row": 2,
+      "col": 2,
+      "isActive": true,
+      "sortOrder": 5
+    },
+    {
+      "id": "kimi",
+      "name": "Kimi",
+      "nameKhmer": "Kimi",
+      "row": 2,
+      "col": 3,
+      "isActive": true,
+      "sortOrder": 6
+    },
+    {
+      "id": "video_ai",
+      "name": "Video AI",
+      "nameKhmer": "Video AI",
+      "row": 3,
+      "col": 1,
+      "isActive": true,
+      "sortOrder": 7
+    },
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "nameKhmer": "ElevenLabs",
+      "row": 3,
+      "col": 2,
+      "isActive": true,
+      "sortOrder": 8
+    },
+    {
+      "id": "ai_tools",
+      "name": "AI Tools",
+      "nameKhmer": "AI Tools",
+      "row": 3,
+      "col": 3,
+      "isActive": true,
+      "sortOrder": 9
+    },
+    {
+      "id": "qwen_api",
+      "name": "Qwen API",
+      "nameKhmer": "Qwen API",
+      "row": 4,
+      "col": 1,
+      "isActive": true,
+      "sortOrder": 10
+    },
+    {
+      "id": "deepseek_api",
+      "name": "DeepSeek API",
+      "nameKhmer": "DeepSeek API",
+      "row": 4,
+      "col": 2,
+      "isActive": true,
+      "sortOrder": 11
+    },
+    {
+      "id": "cursor_api",
+      "name": "Cursor API",
+      "nameKhmer": "Cursor API",
+      "row": 4,
+      "col": 3,
+      "isActive": true,
+      "sortOrder": 12
+    },
+    {
+      "id": "adobe",
+      "name": "Adobe",
+      "nameKhmer": "Adobe",
+      "row": 5,
+      "col": 1,
+      "isActive": true,
+      "sortOrder": 13
+    },
+    {
+      "id": "autodesk",
+      "name": "Autodesk",
+      "nameKhmer": "Autodesk",
+      "row": 5,
+      "col": 2,
+      "isActive": true,
+      "sortOrder": 14
+    },
+    {
+      "id": "design",
+      "name": "Design",
+      "nameKhmer": "Design",
+      "row": 5,
+      "col": 3,
+      "isActive": true,
+      "sortOrder": 15
+    },
+    {
+      "id": "office",
+      "name": "Office",
+      "nameKhmer": "Office",
+      "row": 6,
+      "col": 1,
+      "isActive": true,
+      "sortOrder": 16
+    },
+    {
+      "id": "education",
+      "name": "Education",
+      "nameKhmer": "Education",
+      "row": 6,
+      "col": 2,
+      "isActive": true,
+      "sortOrder": 17
+    },
+    {
+      "id": "streaming",
+      "name": "Streaming",
+      "nameKhmer": "Streaming",
+      "row": 6,
+      "col": 3,
+      "isActive": true,
+      "sortOrder": 18
+    },
+    {
+      "id": "music",
+      "name": "Music",
+      "nameKhmer": "Music",
+      "row": 7,
+      "col": 1,
+      "isActive": true,
+      "sortOrder": 19
+    },
+    {
+      "id": "vpn",
+      "name": "VPN",
+      "nameKhmer": "VPN",
+      "row": 7,
+      "col": 2,
+      "isActive": true,
+      "sortOrder": 20
+    },
+    {
+      "id": "security",
+      "name": "Security",
+      "nameKhmer": "Security",
+      "row": 7,
+      "col": 3,
+      "isActive": true,
+      "sortOrder": 21
+    },
+    {
+      "id": "games",
+      "name": "Games",
+      "nameKhmer": "Games",
+      "row": 8,
+      "col": 1,
+      "isActive": true,
+      "sortOrder": 22
+    },
+    {
+      "id": "social",
+      "name": "Social",
+      "nameKhmer": "Social",
+      "row": 8,
+      "col": 2,
+      "isActive": true,
+      "sortOrder": 23
+    },
+    {
+      "id": "discord",
+      "name": "Discord",
+      "nameKhmer": "Discord",
+      "row": 8,
+      "col": 3,
+      "isActive": true,
+      "sortOrder": 24
+    }
+  ],
+  "products": [],
+  "orders": [],
+  "settings": {
+    "storeName": "Khmer Tech Digital Store",
+    "storeNameKhmer": "ហាងលក់ផលិតផលឌីជីថល ខ្មែរតិច",
+    "welcomeMessageKhmer": "សូមស្វាគមន៍មកកាន់ Khmer Tech Digital Store! 🇰🇭✨\n\nយើងខ្ញុំជាប្រភពផ្គត់ផ្គង់គណនី និងសេវាកម្មឌីជីថល AI, APIs, Software, និង Entertainment ដែលមានគុណភាពខ្ពស់ តម្លៃសមរម្យ និងទំនុកចិត្តខ្ពស់។\n\nសូមជ្រើសរើសប្រភេទផលិតផលខាងក្រោមដើម្បីពិនិត្យមើលមុខទំនិញ៖",
+    "supportTelegramContact": "@KhmerTechSupport",
+    "supportPhone": "+855 12 345 678",
+    "khrExchangeRate": 4100,
+    "digiseller": {
+      "enabled": false,
+      "sellerId": "",
+      "apiKeyConfigured": false,
+      "autoSync": false
+    },
+    "abaPayway": {
+      "enabled": false,
+      "merchantId": "",
+      "environment": "sandbox",
+      "khqrEnabled": true,
+      "apiKeyConfigured": false
+    }
+  }
+}

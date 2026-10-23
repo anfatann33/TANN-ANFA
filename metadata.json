@@ -1,0 +1,6 @@
+{
+  "name": "Khmer Tech Digital Store",
+  "description": "Production-oriented Telegram digital products store and admin dashboard with BotFather integration, category navigation, and Firestore catalog management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
