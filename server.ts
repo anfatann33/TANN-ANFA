@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import crypto from 'node:crypto';
 import { telegramService } from './server/telegram.js';
 import { apiRouter } from './server/routes.js';
+import { testDatabaseConnection } from './server/postgres.js';
 
 dotenv.config();
 
@@ -31,7 +32,7 @@ function resolveDistDirectory(): string {
   return path.resolve(process.cwd(), 'dist');
 }
 
-// Verify Telegram and register webhook without crashing the server.
+// Register Telegram webhook without crashing the server.
 async function setupTelegramWebhook(): Promise<void> {
   if (!telegramService.isTokenConfigured()) {
     console.warn('Telegram Bot Token is not configured.');
@@ -42,7 +43,9 @@ async function setupTelegramWebhook(): Promise<void> {
     .trim()
     .replace(/\/+$/, '');
 
-  const secret = (process.env.TELEGRAM_WEBHOOK_SECRET || '').trim();
+  const secret = (
+    process.env.TELEGRAM_WEBHOOK_SECRET || ''
+  ).trim();
 
   if (!appUrl.startsWith('https://')) {
     console.warn('APP_URL must be a public HTTPS URL.');
@@ -50,19 +53,28 @@ async function setupTelegramWebhook(): Promise<void> {
   }
 
   if (!/^[A-Za-z0-9_-]{1,256}$/.test(secret)) {
-    console.warn('TELEGRAM_WEBHOOK_SECRET is missing or invalid.');
+    console.warn(
+      'TELEGRAM_WEBHOOK_SECRET is missing or invalid.'
+    );
     return;
   }
 
   const webhookUrl = `${appUrl}/api/telegram/webhook`;
 
   try {
-    console.log(`Registering Telegram webhook: ${webhookUrl}`);
+    console.log(
+      `Registering Telegram webhook: ${webhookUrl}`
+    );
 
-    const result = await telegramService.setWebhook(webhookUrl, secret);
+    const result = await telegramService.setWebhook(
+      webhookUrl,
+      secret
+    );
 
     if (result.ok) {
-      console.log(`Telegram webhook registered: ${webhookUrl}`);
+      console.log(
+        `Telegram webhook registered: ${webhookUrl}`
+      );
     } else {
       console.warn(
         `Telegram webhook registration failed: ${
@@ -73,7 +85,38 @@ async function setupTelegramWebhook(): Promise<void> {
   } catch (error) {
     console.error(
       'Telegram webhook connection error:',
-      error instanceof Error ? error.message : String(error)
+      error instanceof Error
+        ? error.message
+        : String(error)
+    );
+  }
+}
+
+// Test Supabase PostgreSQL connection.
+// This does not modify any database tables.
+async function setupPostgresConnection(): Promise<void> {
+  console.log(
+    '[PostgreSQL] Starting Supabase connection test...'
+  );
+
+  try {
+    const connected = await testDatabaseConnection();
+
+    if (connected) {
+      console.log(
+        '[PostgreSQL] Supabase connection test passed.'
+      );
+    } else {
+      console.warn(
+        '[PostgreSQL] Supabase connection test failed.'
+      );
+    }
+  } catch (error) {
+    console.error(
+      '[PostgreSQL] Unexpected connection error:',
+      error instanceof Error
+        ? error.message
+        : String(error)
     );
   }
 }
@@ -87,22 +130,29 @@ async function startServer(): Promise<void> {
   app.use(express.urlencoded({ extended: true }));
 
   // Protect admin API endpoints.
-  // Telegram webhook must remain accessible to Telegram.
+  // Telegram webhook remains publicly accessible
+  // but requires its own secret token.
   app.use('/api', (req, res, next) => {
     if (req.path === '/telegram/webhook') {
       return next();
     }
 
-    const username = process.env.ADMIN_USERNAME || 'admin';
-    const password = process.env.ADMIN_PASSWORD || '';
+    const username =
+      process.env.ADMIN_USERNAME || 'admin';
+
+    const password =
+      process.env.ADMIN_PASSWORD || '';
 
     if (!password) {
       return res.status(503).json({
-        error: 'ADMIN_PASSWORD is not configured on the server',
+        error:
+          'ADMIN_PASSWORD is not configured on the server',
       });
     }
 
-    const authorization = req.headers.authorization || '';
+    const authorization =
+      req.headers.authorization || '';
+
     let supplied = '';
 
     try {
@@ -123,20 +173,25 @@ async function startServer(): Promise<void> {
 
     if (
       suppliedBuffer.length !== expectedBuffer.length ||
-      !crypto.timingSafeEqual(suppliedBuffer, expectedBuffer)
+      !crypto.timingSafeEqual(
+        suppliedBuffer,
+        expectedBuffer
+      )
     ) {
       res.setHeader(
         'WWW-Authenticate',
         'Basic realm="Khmer Tech Admin"'
       );
 
-      return res.status(401).send('Admin login required');
+      return res
+        .status(401)
+        .send('Admin login required');
     }
 
     next();
   });
 
-  // Existing API routes, including Telegram webhook.
+  // Existing API routes including Telegram webhook.
   app.use('/api', apiRouter);
 
   // Public health check.
@@ -147,7 +202,8 @@ async function startServer(): Promise<void> {
       status: 'ok',
       service: 'Khmer Tech Digital Store',
       timestamp: new Date().toISOString(),
-      botConfigured: telegramService.isTokenConfigured(),
+      botConfigured:
+        telegramService.isTokenConfigured(),
       frontendBuilt: fs.existsSync(
         path.join(distPath, 'index.html')
       ),
@@ -158,7 +214,9 @@ async function startServer(): Promise<void> {
   const indexPath = path.join(distPath, 'index.html');
 
   if (process.env.NODE_ENV === 'production') {
-    console.log(`Frontend build directory: ${distPath}`);
+    console.log(
+      `Frontend build directory: ${distPath}`
+    );
 
     if (fs.existsSync(indexPath)) {
       app.use(express.static(distPath));
@@ -201,21 +259,33 @@ async function startServer(): Promise<void> {
 
     console.log(
       `Telegram Bot Token configured: ${
-        telegramService.isTokenConfigured() ? 'YES' : 'NO'
+        telegramService.isTokenConfigured()
+          ? 'YES'
+          : 'NO'
       }`
     );
 
     console.log(
-      `Public App URL: ${process.env.APP_URL || 'Not set'}`
+      `Public App URL: ${
+        process.env.APP_URL || 'Not set'
+      }`
     );
 
     console.log(`Frontend path: ${distPath}`);
 
+    // Initialize Telegram webhook.
     void setupTelegramWebhook();
+
+    // Test Supabase PostgreSQL connection.
+    // Does not change existing local JSON database.
+    void setupPostgresConnection();
   });
 }
 
 startServer().catch((error) => {
-  console.error('Fatal server startup error:', error);
+  console.error(
+    'Fatal server startup error:',
+    error
+  );
   process.exit(1);
 });
