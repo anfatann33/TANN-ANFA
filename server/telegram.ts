@@ -1,14 +1,70 @@
+
 import { db } from './db.js';
 import { TelegramBotInfo, TelegramWebhookInfo } from './types.js';
 
-interface TelegramInlineKeyboardButton {
+interface Button {
   text: string;
   callback_data?: string;
   url?: string;
 }
 
-interface TelegramInlineKeyboardMarkup {
-  inline_keyboard: TelegramInlineKeyboardButton[][];
+interface Keyboard {
+  inline_keyboard: Button[][];
+}
+
+const CATEGORY_ROWS = [
+  ['chatgpt', 'gemini', 'grok'],
+  ['codex_api', 'claude', 'kimi'],
+  ['video_ai', 'elevenlabs', 'ai_tools'],
+  ['qwen_api', 'deepseek_api', 'cursor_api'],
+  ['adobe', 'autodesk', 'design'],
+  ['office', 'education', 'streaming'],
+  ['music', 'vpn', 'security'],
+  ['games', 'social', 'discord'],
+];
+
+const CATEGORY_NAMES: Record<string, string> = {
+  chatgpt: 'ChatGPT',
+  gemini: 'Gemini',
+  grok: 'Grok',
+  codex_api: 'Codex API',
+  claude: 'Claude',
+  kimi: 'Kimi',
+  video_ai: 'Video AI',
+  elevenlabs: 'ElevenLabs',
+  ai_tools: 'AI Tools',
+  qwen_api: 'Qwen API',
+  deepseek_api: 'DeepSeek API',
+  cursor_api: 'Cursor API',
+  adobe: 'Adobe',
+  autodesk: 'Autodesk',
+  design: 'Design',
+  office: 'Office',
+  education: 'Education',
+  streaming: 'Streaming',
+  music: 'Music',
+  vpn: 'VPN',
+  security: 'Security',
+  games: 'Games',
+  social: 'Social',
+  discord: 'Discord',
+};
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function backKeyboard(): Keyboard {
+  return {
+    inline_keyboard: [
+      [{ text: '⬅️ Back', callback_data: 'action_back' }],
+    ],
+  };
 }
 
 export class TelegramService {
@@ -21,79 +77,153 @@ export class TelegramService {
   }
 
   public isTokenConfigured(): boolean {
-    return Boolean(this.token && this.token.length > 10 && this.token.includes(':'));
+    return Boolean(
+      this.token &&
+      this.token.length > 10 &&
+      this.token.includes(':')
+    );
   }
 
-  // Centralized Telegram API request with a bounded timeout.
-  private async apiRequest<T = any>(method: string, payload?: Record<string, unknown>): Promise<T> {
+  private async apiRequest<T = any>(
+    method: string,
+    payload?: Record<string, unknown>
+  ): Promise<T> {
     if (!this.isTokenConfigured()) {
-      return { ok: false, description: 'Bot token not configured' } as T;
+      return {
+        ok: false,
+        description: 'Bot token not configured',
+      } as T;
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 12000);
+    const timeout = setTimeout(
+      () => controller.abort(),
+      12000
+    );
+
     try {
-      const response = await fetch(`${this.baseUrl}/${method}`, {
-        method: payload ? 'POST' : 'GET',
-        headers: payload ? { 'Content-Type': 'application/json' } : undefined,
-        body: payload ? JSON.stringify(payload) : undefined,
-        signal: controller.signal,
-      });
+      const response = await fetch(
+        `${this.baseUrl}/${method}`,
+        {
+          method: payload ? 'POST' : 'GET',
+          headers: payload
+            ? { 'Content-Type': 'application/json' }
+            : undefined,
+          body: payload
+            ? JSON.stringify(payload)
+            : undefined,
+          signal: controller.signal,
+        }
+      );
+
       const result = await response.json() as T;
+
       if (!response.ok) {
-        console.error(`Telegram ${method} HTTP ${response.status}`);
+        console.error(
+          `Telegram ${method} HTTP ${response.status}`
+        );
       }
+
       return result;
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      console.error(`Telegram ${method} request failed: ${detail}`);
-      return { ok: false, description: `Telegram ${method} failed: ${detail}` } as T;
+      const detail = error instanceof Error
+        ? error.message
+        : String(error);
+
+      console.error(
+        `Telegram ${method} request failed: ${detail}`
+      );
+
+      return {
+        ok: false,
+        description: detail,
+      } as T;
     } finally {
       clearTimeout(timeout);
     }
   }
 
-  public async getMe(): Promise<{ ok: boolean; result?: TelegramBotInfo; description?: string; error_code?: number }> {
+  public async getMe(): Promise<{
+    ok: boolean;
+    result?: TelegramBotInfo;
+    description?: string;
+    error_code?: number;
+  }> {
     return this.apiRequest('getMe');
   }
 
-  public async setWebhook(webhookUrl: string, secretToken?: string): Promise<{ ok: boolean; description?: string; result?: boolean }> {
+  public async setWebhook(
+    webhookUrl: string,
+    secretToken?: string
+  ): Promise<{
+    ok: boolean;
+    description?: string;
+    result?: boolean;
+  }> {
     const payload: Record<string, unknown> = {
       url: webhookUrl,
       allowed_updates: ['message', 'callback_query'],
     };
-    if (secretToken) payload.secret_token = secretToken;
+
+    if (secretToken) {
+      payload.secret_token = secretToken;
+    }
+
     return this.apiRequest('setWebhook', payload);
   }
 
-  public async getWebhookInfo(): Promise<{ ok: boolean; result?: TelegramWebhookInfo; description?: string }> {
+  public async getWebhookInfo(): Promise<{
+    ok: boolean;
+    result?: TelegramWebhookInfo;
+    description?: string;
+  }> {
     return this.apiRequest('getWebhookInfo');
   }
 
-  public async deleteWebhook(): Promise<{ ok: boolean; description?: string }> {
+  public async deleteWebhook(): Promise<{
+    ok: boolean;
+    description?: string;
+  }> {
     return this.apiRequest('deleteWebhook', {});
   }
 
-  public async sendMessage(chatId: number | string, text: string, replyMarkup?: TelegramInlineKeyboardMarkup): Promise<any> {
+  public async sendMessage(
+    chatId: number | string,
+    text: string,
+    replyMarkup?: Keyboard
+  ): Promise<any> {
     return this.apiRequest('sendMessage', {
       chat_id: chatId,
       text,
       parse_mode: 'HTML',
-      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+      ...(replyMarkup
+        ? { reply_markup: replyMarkup }
+        : {}),
     });
   }
 
-  public async editMessageText(chatId: number | string, messageId: number, text: string, replyMarkup?: TelegramInlineKeyboardMarkup): Promise<any> {
+  public async editMessageText(
+    chatId: number | string,
+    messageId: number,
+    text: string,
+    replyMarkup?: Keyboard
+  ): Promise<any> {
     return this.apiRequest('editMessageText', {
       chat_id: chatId,
       message_id: messageId,
       text,
       parse_mode: 'HTML',
-      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+      ...(replyMarkup
+        ? { reply_markup: replyMarkup }
+        : {}),
     });
   }
 
-  public async answerCallbackQuery(callbackQueryId: string, text?: string, showAlert: boolean = false): Promise<any> {
+  public async answerCallbackQuery(
+    callbackQueryId: string,
+    text?: string,
+    showAlert = false
+  ): Promise<any> {
     return this.apiRequest('answerCallbackQuery', {
       callback_query_id: callbackQueryId,
       ...(text ? { text } : {}),
@@ -101,354 +231,471 @@ export class TelegramService {
     });
   }
 
-  /**
-   * Generates the Telegram inline keyboard with the exact 3-column rows
-   * Row 1: ChatGPT | Gemini | Grok
-   * Row 2: Codex API | Claude | Kimi
-   * Row 3: Video AI | ElevenLabs | AI Tools
-   * Row 4: Qwen API | DeepSeek API | Cursor API
-   * Row 5: Adobe | Autodesk | Design
-   * Row 6: Office | Education | Streaming
-   * Row 7: Music | VPN | Security
-   * Row 8: Games | Social | Discord
-   * Additional buttons:
-   * - Search Products
-   * - All Products
-   * - My Orders
-   * - Support
-   * - Back
-   */
-  public getMainStoreKeyboard(): TelegramInlineKeyboardMarkup {
-    const keyboard: TelegramInlineKeyboardButton[][] = [
-      // Row 1
+  public getMainStoreKeyboard(): Keyboard {
+    const keyboard: Button[][] = CATEGORY_ROWS.map(
+      row => row.map(id => ({
+        text: CATEGORY_NAMES[id],
+        callback_data: `cat_${id}`,
+      }))
+    );
+
+    keyboard.push(
       [
-        { text: 'ChatGPT', callback_data: 'cat_chatgpt' },
-        { text: 'Gemini', callback_data: 'cat_gemini' },
-        { text: 'Grok', callback_data: 'cat_grok' },
-      ],
-      // Row 2
-      [
-        { text: 'Codex API', callback_data: 'cat_codex_api' },
-        { text: 'Claude', callback_data: 'cat_claude' },
-        { text: 'Kimi', callback_data: 'cat_kimi' },
-      ],
-      // Row 3
-      [
-        { text: 'Video AI', callback_data: 'cat_video_ai' },
-        { text: 'ElevenLabs', callback_data: 'cat_elevenlabs' },
-        { text: 'AI Tools', callback_data: 'cat_ai_tools' },
-      ],
-      // Row 4
-      [
-        { text: 'Qwen API', callback_data: 'cat_qwen_api' },
-        { text: 'DeepSeek API', callback_data: 'cat_deepseek_api' },
-        { text: 'Cursor API', callback_data: 'cat_cursor_api' },
-      ],
-      // Row 5
-      [
-        { text: 'Adobe', callback_data: 'cat_adobe' },
-        { text: 'Autodesk', callback_data: 'cat_autodesk' },
-        { text: 'Design', callback_data: 'cat_design' },
-      ],
-      // Row 6
-      [
-        { text: 'Office', callback_data: 'cat_office' },
-        { text: 'Education', callback_data: 'cat_education' },
-        { text: 'Streaming', callback_data: 'cat_streaming' },
-      ],
-      // Row 7
-      [
-        { text: 'Music', callback_data: 'cat_music' },
-        { text: 'VPN', callback_data: 'cat_vpn' },
-        { text: 'Security', callback_data: 'cat_security' },
-      ],
-      // Row 8
-      [
-        { text: 'Games', callback_data: 'cat_games' },
-        { text: 'Social', callback_data: 'cat_social' },
-        { text: 'Discord', callback_data: 'cat_discord' },
-      ],
-      // Additional buttons
-      [
-        { text: '🔍 Search Products', callback_data: 'action_search' },
-        { text: '📦 All Products', callback_data: 'action_all' },
+        {
+          text: '🔍 Search Products',
+          callback_data: 'action_search',
+        },
+        {
+          text: '📦 All Products',
+          callback_data: 'action_all',
+        },
       ],
       [
-        { text: '🛍️ My Orders', callback_data: 'action_orders' },
-        { text: '💬 Support', callback_data: 'action_support' },
+        {
+          text: '🛍️ My Orders',
+          callback_data: 'action_orders',
+        },
+        {
+          text: '💬 Support',
+          callback_data: 'action_support',
+        },
       ],
       [
-        { text: '⬅️ Back', callback_data: 'action_back' },
-      ],
-    ];
+        {
+          text: '⬅️ Back',
+          callback_data: 'action_back',
+        },
+      ]
+    );
 
     return { inline_keyboard: keyboard };
   }
 
-  /**
-   * Builds category view response with products from DB.
-   * If there are no products, shows Khmer message saying category is currently empty.
-   */
-  public buildCategoryResponse(categoryId: string): { text: string; replyMarkup: TelegramInlineKeyboardMarkup } {
+  public buildCategoryResponse(categoryId: string): {
+    text: string;
+    replyMarkup: Keyboard;
+  } {
     const category = db.getCategory(categoryId);
     const settings = db.getSettings();
-    const catName = category ? category.name : categoryId;
 
-    const products = db.getProducts({ categoryId, status: 'active' });
+    const name = escapeHtml(
+      category?.name || CATEGORY_NAMES[categoryId] || categoryId
+    );
 
-    if (!products || products.length === 0) {
-      const text = `📁 <b>ប្រភេទ៖ ${catName}</b>\n\n` +
-        `⚠️ <i>សូមអភ័យទោស ប្រភេទនេះមិនទាន់មានទំនិញនៅឡើយទេ។ សូមពិនិត្យមើលម្តងទៀតនៅពេលក្រោយ!</i>\n\n` +
-        `👉 សូមចុច <b>"Back"</b> ដើម្បីត្រឡប់ទៅបញ្ជីប្រភេទដើមវិញ។`;
-
-      const replyMarkup: TelegramInlineKeyboardMarkup = {
-        inline_keyboard: [
-          [{ text: '⬅️ Back', callback_data: 'action_back' }],
-        ],
-      };
-
-      return { text, replyMarkup };
-    }
-
-    // Has products
-    let text = `📁 <b>ប្រភេទ៖ ${catName}</b>\n` +
-      `ខាងក្រោមនេះជាមុខទំនិញដែលមានក្នុងស្តុក៖\n\n`;
-
-    const keyboard: TelegramInlineKeyboardButton[][] = [];
-
-    products.forEach((prod, index) => {
-      const khrPrice = (prod.priceUSD * (settings.khrExchangeRate || 4100)).toLocaleString();
-      text += `<b>${index + 1}. ${prod.title}</b>\n`;
-      text += `💰 តម្លៃ: <b>$${prod.priceUSD.toFixed(2)}</b> (~${khrPrice} ៛)\n`;
-      if (prod.description) {
-        text += `📝 ${prod.description}\n`;
-      }
-      text += `📦 ស្តុក: ${prod.stock > 0 ? `${prod.stock} items` : 'អស់ពីស្តុក'}\n\n`;
-
-      keyboard.push([
-        { text: `🛒 បញ្ជាទិញ ${prod.title} ($${prod.priceUSD.toFixed(2)})`, callback_data: `buy_${prod.id}` },
-      ]);
+    const products = db.getProducts({
+      categoryId,
+      status: 'active',
     });
 
-    keyboard.push([{ text: '⬅️ Back', callback_data: 'action_back' }]);
+    if (products.length === 0) {
+      return {
+        text:
+          `📁 <b>ប្រភេទ៖ ${name}</b>\n\n` +
+          '⚠️ ប្រភេទនេះមិនទាន់មានទំនិញនៅឡើយទេ។',
+        replyMarkup: backKeyboard(),
+      };
+    }
 
-    return { text, replyMarkup: { inline_keyboard: keyboard } };
+    let text =
+      `📁 <b>ប្រភេទ៖ ${name}</b>\n\n`;
+
+    const keyboard: Button[][] = [];
+
+    for (const product of products.slice(0, 20)) {
+      const khr = Math.round(
+        product.priceUSD *
+        (settings.khrExchangeRate || 4100)
+      );
+
+      text +=
+        `📦 <b>${escapeHtml(product.title)}</b>\n` +
+        `💰 $${product.priceUSD.toFixed(2)} ` +
+        `(~${khr.toLocaleString()}៛)\n` +
+        `Stock: ${product.stock}\n\n`;
+
+      keyboard.push([{
+        text: `🛒 ${product.title}`,
+        callback_data: `buy_${product.id}`,
+      }]);
+    }
+
+    keyboard.push([
+      { text: '⬅️ Back', callback_data: 'action_back' },
+    ]);
+
+    return {
+      text,
+      replyMarkup: { inline_keyboard: keyboard },
+    };
   }
 
-  /**
-   * Builds product detail & purchase view
-   */
-  public buildProductDetailResponse(productId: string): { text: string; replyMarkup: TelegramInlineKeyboardMarkup } {
+  public buildProductDetailResponse(productId: string): {
+    text: string;
+    replyMarkup: Keyboard;
+  } {
     const product = db.getProduct(productId);
     const settings = db.getSettings();
 
-    if (!product) {
+    if (!product || product.status !== 'active') {
       return {
-        text: `⚠️ <i>រកមិនឃើញទំនិញនេះទេ ឬត្រូវបានលុបចេញហើយ។</i>`,
-        replyMarkup: {
-          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'action_back' }]],
-        },
+        text: '⚠️ ផលិតផលនេះមិនមានសម្រាប់លក់ទេ។',
+        replyMarkup: backKeyboard(),
       };
     }
 
-    const khrPrice = (product.priceUSD * (settings.khrExchangeRate || 4100)).toLocaleString();
-    const supportUser = settings.supportTelegramContact.replace('@', '');
+    if (product.stock < 1) {
+      return {
+        text: '⚠️ ផលិតផលនេះអស់ពីស្តុកហើយ។',
+        replyMarkup: backKeyboard(),
+      };
+    }
 
-    const text = `🛍️ <b>បញ្ជាក់ការបញ្ជាទិញ / Order Details</b>\n\n` +
-      `📌 <b>ផលិតផល:</b> ${product.title}\n` +
-      `💰 <b>តម្លៃ:</b> $${product.priceUSD.toFixed(2)} (${khrPrice} ៛)\n` +
-      `⚡ <b>ការដឹកជញ្ជូន:</b> ${product.deliveryType}\n` +
-      `📝 <b>ព័ត៌មានលម្អិត:</b> ${product.description || 'គណនីឌីជីថលសុវត្ថិភាព 100%'}\n\n` +
-      `💳 <b>ជម្រើសទូទាត់ប្រាក់ (Payment Options):</b>\n` +
-      `1. <b>ABA PayWay KHQR:</b> (ស្កេនទូទាត់ប្រាក់ភ្លាមៗ - ដំណាក់កាលបន្ទាប់)\n` +
-      `2. <b>ទាក់ទង Admin ដោយផ្ទាល់:</b> ដើម្បីទទួលបានការផ្ទៀងផ្ទាត់ និងទទួលយកគណនីភ្លាមៗ\n\n` +
-      `សូមចុចប៊ូតុងខាងក្រោមដើម្បីទាក់ទងមកកាន់ Support / Admin ៖`;
+    const khr = Math.round(
+      product.priceUSD *
+      (settings.khrExchangeRate || 4100)
+    );
 
-    const keyboard: TelegramInlineKeyboardButton[][] = [
-      [
-        { text: `💬 ទាក់ទង Admin ទិញ (${settings.supportTelegramContact})`, url: `https://t.me/${supportUser}` },
-      ],
-      [
-        { text: '📁 មើលទំនិញផ្សេងទៀត', callback_data: `cat_${product.categoryId}` },
-        { text: '⬅️ Back', callback_data: 'action_back' },
-      ],
-    ];
+    const text =
+      '🛍️ <b>Order Details</b>\n\n' +
+      `📌 ${escapeHtml(product.title)}\n` +
+      `💰 $${product.priceUSD.toFixed(2)} ` +
+      `(~${khr.toLocaleString()}៛)\n` +
+      `📦 Stock: ${product.stock}\n\n` +
+      `${escapeHtml(product.description)}\n\n` +
+      '🧪 <b>Sandbox Testing Only</b>\n' +
+      'ចុច Confirm Order ដើម្បីបង្កើត ' +
+      'Order ស្ថានភាព Pending។\n' +
+      'មិនទាន់មានការទូទាត់ប្រាក់ពិតទេ។';
 
-    return { text, replyMarkup: { inline_keyboard: keyboard } };
+    return {
+      text,
+      replyMarkup: {
+        inline_keyboard: [
+          [{
+            text: '✅ Confirm Order (Sandbox)',
+            callback_data: `confirm_${product.id}`,
+          }],
+          [{
+            text: '⬅️ Back',
+            callback_data: `cat_${product.categoryId}`,
+          }],
+        ],
+      },
+    };
   }
 
-  /**
-   * Handles incoming update from Telegram Webhook or Simulator
-   */
-  public async handleUpdate(update: any): Promise<{ handled: boolean; replyText?: string }> {
+  private createPendingOrder(
+    productId: string,
+    user: any
+  ): {
+    text: string;
+    replyMarkup: Keyboard;
+  } {
+    const product = db.getProduct(productId);
     const settings = db.getSettings();
 
-    // 1. Handle callback_query (Inline keyboard button clicks)
+    if (
+      !product ||
+      product.status !== 'active' ||
+      product.stock < 1 ||
+      !Number.isFinite(product.priceUSD) ||
+      product.priceUSD <= 0
+    ) {
+      return {
+        text: '⚠️ ផលិតផលមិនមាន ឬអស់ពីស្តុក។',
+        replyMarkup: backKeyboard(),
+      };
+    }
+
+    if (!user?.id) {
+      return {
+        text: '⚠️ មិនអាចកំណត់អតិថិជនបាន។',
+        replyMarkup: backKeyboard(),
+      };
+    }
+
+    const totalUSD = Math.round(
+      product.priceUSD * 100
+    ) / 100;
+
+    const totalKHR = Math.round(
+      totalUSD *
+      (settings.khrExchangeRate || 4100)
+    );
+
+    const order = db.createOrder({
+      telegramUserId: user.id,
+      telegramUsername: user.username || '',
+      telegramFirstName: user.first_name || '',
+      items: [{
+        productId: product.id,
+        title: product.title,
+        priceUSD: totalUSD,
+        quantity: 1,
+      }],
+      totalAmountUSD: totalUSD,
+      totalAmountKHR: totalKHR,
+      paymentStatus: 'pending',
+      fulfillmentStatus: 'pending',
+      paymentMethod: 'aba_khqr',
+    });
+
+    const text =
+      '✅ <b>Sandbox Order Created</b>\n\n' +
+      `🧾 Order: <code>${escapeHtml(order.orderNumber)}</code>\n` +
+      `📦 ${escapeHtml(product.title)}\n` +
+      `💰 $${totalUSD.toFixed(2)}\n` +
+      `🇰🇭 ${totalKHR.toLocaleString()}៛\n\n` +
+      '💳 Payment: <b>PENDING</b>\n' +
+      '📦 Delivery: <b>PENDING</b>\n\n' +
+      '🧪 ABA Sandbox Checkout ' +
+      'មិនទាន់បើកនៅជំហាននេះទេ។\n' +
+      'មិនទាន់កាត់ប្រាក់ ឬផ្ញើផលិតផលទេ។';
+
+    return {
+      text,
+      replyMarkup: {
+        inline_keyboard: [
+          [{
+            text: '🛍️ My Orders',
+            callback_data: 'action_orders',
+          }],
+          [{
+            text: '⬅️ Main Menu',
+            callback_data: 'action_back',
+          }],
+        ],
+      },
+    };
+  }
+
+  public async handleUpdate(update: any): Promise<{
+    handled: boolean;
+    replyText?: string;
+  }> {
+    const settings = db.getSettings();
+
     if (update.callback_query) {
       const cq = update.callback_query;
-      const data = cq.data || '';
+      const data = String(cq.data || '');
       const chatId = cq.message?.chat?.id;
       const messageId = cq.message?.message_id;
 
-      // Always answer callback query to remove Telegram loading spinner
       void this.answerCallbackQuery(cq.id);
 
       if (!chatId || !messageId) {
         return { handled: true };
       }
 
-      // Category selected
+      let result: {
+        text: string;
+        replyMarkup: Keyboard;
+      };
+
       if (data.startsWith('cat_')) {
-        const categoryId = data.replace('cat_', '');
-        const { text, replyMarkup } = this.buildCategoryResponse(categoryId);
-        await this.editMessageText(chatId, messageId, text, replyMarkup);
-        return { handled: true, replyText: text };
-      }
+        result = this.buildCategoryResponse(
+          data.slice(4)
+        );
+      } else if (data.startsWith('buy_')) {
+        result = this.buildProductDetailResponse(
+          data.slice(4)
+        );
+      } else if (data.startsWith('confirm_')) {
+        result = this.createPendingOrder(
+          data.slice(8),
+          cq.from
+        );
+      } else if (data === 'action_all') {
+        const products = db.getProducts({
+          status: 'active',
+        });
 
-      // Buy / View Product
-      if (data.startsWith('buy_')) {
-        const productId = data.replace('buy_', '');
-        const { text, replyMarkup } = this.buildProductDetailResponse(productId);
-        await this.editMessageText(chatId, messageId, text, replyMarkup);
-        return { handled: true, replyText: text };
-      }
+        const keyboard: Button[][] = [];
+        let text = '📦 <b>All Products</b>\n\n';
 
-      // Action: All Products
-      if (data === 'action_all') {
-        const products = db.getProducts({ status: 'active' });
         if (products.length === 0) {
-          const text = `📦 <b>ទំនិញទាំងអស់ (All Products)</b>\n\n` +
-            `⚠️ <i>បច្ចុប្បន្នមិនទាន់មានទំនិញដាក់លក់នៅឡើយទេ។ សូមរង់ចាំការដាក់លក់ក្នុងពេលឆាប់ៗ!</i>`;
-          await this.editMessageText(chatId, messageId, text, {
-            inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'action_back' }]],
-          });
-          return { handled: true, replyText: text };
+          text += 'មិនទាន់មានទំនិញទេ។';
         }
 
-        let text = `📦 <b>ទំនិញទាំងអស់ដែលមានក្នុងស្តុក៖</b>\n\n`;
-        const keyboard: TelegramInlineKeyboardButton[][] = [];
-        products.slice(0, 10).forEach(p => {
-          text += `• <b>${p.title}</b> - $${p.priceUSD.toFixed(2)}\n`;
-          keyboard.push([{ text: `🛒 ${p.title} ($${p.priceUSD.toFixed(2)})`, callback_data: `buy_${p.id}` }]);
-        });
-        keyboard.push([{ text: '⬅️ Back', callback_data: 'action_back' }]);
-        await this.editMessageText(chatId, messageId, text, { inline_keyboard: keyboard });
-        return { handled: true, replyText: text };
-      }
+        for (const p of products.slice(0, 10)) {
+          text +=
+            `• ${escapeHtml(p.title)} ` +
+            `- $${p.priceUSD.toFixed(2)}\n`;
 
-      // Action: Search
-      if (data === 'action_search') {
-        const text = `🔍 <b>ស្វែងរកផលិតផល (Search Products)</b>\n\n` +
-          `សូមផ្ញើសារវាយបញ្ចូលឈ្មោះផលិតផល ឬពាក្យគន្លឹះដែលអ្នកចង់ស្វែងរក (ឧទាហរណ៍៖ ChatGPT, Adobe, VPN...) មកកាន់ Chat នេះ។`;
-        await this.editMessageText(chatId, messageId, text, {
-          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'action_back' }]],
-        });
-        return { handled: true, replyText: text };
-      }
+          keyboard.push([{
+            text: `🛒 ${p.title}`,
+            callback_data: `buy_${p.id}`,
+          }]);
+        }
 
-      // Action: My Orders
-      if (data === 'action_orders') {
-        const userId = cq.from?.id;
-        const orders = userId ? db.getOrders(userId) : [];
+        keyboard.push([{
+          text: '⬅️ Back',
+          callback_data: 'action_back',
+        }]);
+
+        result = {
+          text,
+          replyMarkup: {
+            inline_keyboard: keyboard,
+          },
+        };
+      } else if (data === 'action_orders') {
+        const orders = cq.from?.id
+          ? db.getOrders(cq.from.id)
+          : [];
+
+        let text = '🛍️ <b>My Orders</b>\n\n';
 
         if (orders.length === 0) {
-          const text = `🛍️ <b>ប្រវត្តិការបញ្ជាទិញ (My Orders)</b>\n\n` +
-            `លោកអ្នកមិនទាន់មានប្រវត្តិបញ្ជាទិញនៅឡើយទេ។\n` +
-            `សូមជ្រើសរើសទំនិញដើម្បីធ្វើការបញ្ជាទិញ! ✨`;
-          await this.editMessageText(chatId, messageId, text, {
-            inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'action_back' }]],
-          });
-          return { handled: true, replyText: text };
+          text += 'មិនទាន់មាន Order ទេ។';
         }
 
-        let text = `🛍️ <b>ប្រវត្តិការបញ្ជាទិញរបស់អ្នក៖</b>\n\n`;
-        orders.slice(0, 5).forEach((order, idx) => {
-          text += `${idx + 1}. <b>កូដ៖</b> <code>${order.orderNumber}</code>\n`;
-          text += `   សរុប: $${order.totalAmountUSD.toFixed(2)}\n`;
-          text += `   ស្ថានភាព: <b>${order.paymentStatus}</b> | ${order.fulfillmentStatus}\n\n`;
-        });
+        for (const order of orders.slice(-5).reverse()) {
+          text +=
+            `🧾 ${escapeHtml(order.orderNumber)}\n` +
+            `💰 $${order.totalAmountUSD.toFixed(2)}\n` +
+            `💳 ${escapeHtml(order.paymentStatus)}\n` +
+            `📦 ${escapeHtml(order.fulfillmentStatus)}\n\n`;
+        }
 
-        await this.editMessageText(chatId, messageId, text, {
-          inline_keyboard: [[{ text: '⬅️ Back', callback_data: 'action_back' }]],
-        });
-        return { handled: true, replyText: text };
+        result = {
+          text,
+          replyMarkup: backKeyboard(),
+        };
+      } else if (data === 'action_search') {
+        result = {
+          text:
+            '🔍 <b>Search Products</b>\n\n' +
+            'សូមវាយឈ្មោះផលិតផលដែលបងចង់រក។',
+          replyMarkup: backKeyboard(),
+        };
+      } else if (data === 'action_support') {
+        const support = settings.supportTelegramContact;
+        const username = support.replace(/^@/, '');
+
+        result = {
+          text:
+            '💬 <b>Support</b>\n\n' +
+            escapeHtml(support),
+          replyMarkup: {
+            inline_keyboard: [
+              [{
+                text: '💬 Contact Support',
+                url: `https://t.me/${username}`,
+              }],
+              [{
+                text: '⬅️ Back',
+                callback_data: 'action_back',
+              }],
+            ],
+          },
+        };
+      } else if (data === 'action_back') {
+        result = {
+          text: escapeHtml(settings.welcomeMessageKhmer),
+          replyMarkup: this.getMainStoreKeyboard(),
+        };
+      } else {
+        return { handled: true };
       }
 
-      // Action: Support
-      if (data === 'action_support') {
-        const supportUser = settings.supportTelegramContact.replace('@', '');
-        const text = `💬 <b>ផ្នែកបម្រើអតិថិជន (Support & Help)</b>\n\n` +
-          `🇰🇭 <b>Khmer Tech Digital Store</b>\n` +
-          `📩 Telegram Support: <b>${settings.supportTelegramContact}</b>\n` +
-          `📞 ទូរស័ព្ទ: ${settings.supportPhone || '+855 12 345 678'}\n` +
-          `⏰ ម៉ោងបម្រើការ: 8:00 AM - 10:00 PM (រៀងរាល់ថ្ងៃ)\n\n` +
-          `យើងខ្ញុំរីករាយស្វាគមន៍ និងឆ្លើយតបរាល់ចម្ងល់ ឬសំណើជំនួយបច្ចេកទេសរបស់លោកអ្នក!`;
+      await this.editMessageText(
+        chatId,
+        messageId,
+        result.text,
+        result.replyMarkup
+      );
 
-        const keyboard: TelegramInlineKeyboardButton[][] = [
-          [{ text: `💬 ផ្ញើសារទៅកាន់ Support`, url: `https://t.me/${supportUser}` }],
-          [{ text: '⬅️ Back', callback_data: 'action_back' }],
-        ];
-        await this.editMessageText(chatId, messageId, text, { inline_keyboard: keyboard });
-        return { handled: true, replyText: text };
-      }
-
-      // Action: Back
-      if (data === 'action_back') {
-        const text = settings.welcomeMessageKhmer;
-        const keyboard = this.getMainStoreKeyboard();
-        await this.editMessageText(chatId, messageId, text, keyboard);
-        return { handled: true, replyText: text };
-      }
-
-      return { handled: true };
+      return {
+        handled: true,
+        replyText: result.text,
+      };
     }
 
-    // 2. Handle Message
     if (update.message) {
       const msg = update.message;
       const chatId = msg.chat?.id;
-      const text = msg.text?.trim() || '';
+      const text = String(msg.text || '').trim();
 
-      if (!chatId) return { handled: false };
+      if (!chatId) {
+        return { handled: false };
+      }
 
-      // /start command
       if (text.startsWith('/start')) {
-        const welcomeText = settings.welcomeMessageKhmer;
-        const keyboard = this.getMainStoreKeyboard();
-        await this.sendMessage(chatId, welcomeText, keyboard);
-        return { handled: true, replyText: welcomeText };
+        const welcome = escapeHtml(
+          settings.welcomeMessageKhmer
+        );
+
+        await this.sendMessage(
+          chatId,
+          welcome,
+          this.getMainStoreKeyboard()
+        );
+
+        return {
+          handled: true,
+          replyText: welcome,
+        };
       }
 
-      // /help or help
       if (text.startsWith('/help')) {
-        const helpText = `🆘 <b>ជំនួយការប្រើប្រាស់ Bot</b>\n\n` +
-          `• ផ្ញើ <code>/start</code> ដើម្បីបើកម៉ឺនុយហាង\n` +
-          `• ចុចលើប្រភេទផលិតផលនីមួយៗដើម្បីពិនិត្យមើលតម្លៃ និងស្តុក\n` +
-          `• វាយឈ្មោះផលិតផលដើម្បីស្វែងរកភ្លាមៗ\n` +
-          `• ជំនួយបច្ចេកទេស៖ ${settings.supportTelegramContact}`;
-        await this.sendMessage(chatId, helpText, this.getMainStoreKeyboard());
-        return { handled: true, replyText: helpText };
+        const help =
+          '🆘 <b>Help</b>\n\n' +
+          '/start - Main Menu\n' +
+          '/help - Help\n\n' +
+          'ជ្រើសប្រភេទ ឬវាយឈ្មោះផលិតផល។';
+
+        await this.sendMessage(
+          chatId,
+          help,
+          this.getMainStoreKeyboard()
+        );
+
+        return {
+          handled: true,
+          replyText: help,
+        };
       }
 
-      // Search if user sends normal text
       if (text && !text.startsWith('/')) {
-        const matches = db.getProducts({ search: text, status: 'active' });
-        if (matches.length === 0) {
-          const noMatchText = `🔍 រកមិនឃើញទំនិញដែលត្រូវនឹងពាក្យ "<b>${text}</b>" ទេ។\n\n` +
-            `សូមសាកល្បងស្វែងរកដោយប្រើពាក្យផ្សេង ឬជ្រើសរើសតាមប្រភេទខាងក្រោម៖`;
-          await this.sendMessage(chatId, noMatchText, this.getMainStoreKeyboard());
-          return { handled: true, replyText: noMatchText };
+        const products = db.getProducts({
+          search: text,
+          status: 'active',
+        });
+
+        let reply =
+          `🔍 <b>Search: ${escapeHtml(text)}</b>\n\n`;
+
+        const keyboard: Button[][] = [];
+
+        if (products.length === 0) {
+          reply += 'រកមិនឃើញផលិតផលទេ។';
         }
 
-        let matchText = `🔍 <b>លទ្ធផលស្វែងរកសម្រាប់ "${text}" (${matches.length} មុខ):</b>\n\n`;
-        const keyboard: TelegramInlineKeyboardButton[][] = [];
-        matches.slice(0, 8).forEach(p => {
-          matchText += `• <b>${p.title}</b>: $${p.priceUSD.toFixed(2)}\n`;
-          keyboard.push([{ text: `🛒 ${p.title} ($${p.priceUSD.toFixed(2)})`, callback_data: `buy_${p.id}` }]);
+        for (const p of products.slice(0, 8)) {
+          reply +=
+            `• ${escapeHtml(p.title)} ` +
+            `$${p.priceUSD.toFixed(2)}\n`;
+
+          keyboard.push([{
+            text: `🛒 ${p.title}`,
+            callback_data: `buy_${p.id}`,
+          }]);
+        }
+
+        keyboard.push([{
+          text: '⬅️ Back',
+          callback_data: 'action_back',
+        }]);
+
+        await this.sendMessage(chatId, reply, {
+          inline_keyboard: keyboard,
         });
-        keyboard.push([{ text: '⬅️ Back', callback_data: 'action_back' }]);
-        await this.sendMessage(chatId, matchText, { inline_keyboard: keyboard });
-        return { handled: true, replyText: matchText };
+
+        return {
+          handled: true,
+          replyText: reply,
+        };
       }
     }
 
