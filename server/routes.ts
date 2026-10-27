@@ -83,7 +83,7 @@ apiRouter.post('/telegram/webhook', async (req: Request, res: Response) => {
   const secretHeader = req.headers['x-telegram-bot-api-secret-token'];
   const expectedSecret = process.env.TELEGRAM_WEBHOOK_SECRET;
 
-  if (expectedSecret && secretHeader !== expectedSecret) {
+  if (!expectedSecret || secretHeader !== expectedSecret) {
     console.warn('Telegram webhook received with invalid secret token');
     res.status(401).send('Unauthorized secret token');
     return;
@@ -120,7 +120,7 @@ apiRouter.get('/telegram/webhook-info', async (_req: Request, res: Response) => 
 
 // Real Set Webhook (Only allowed with working public HTTPS URL)
 apiRouter.post('/telegram/set-webhook', async (req: Request, res: Response) => {
-  const customUrl = req.body.url;
+  const customUrl = req.body?.url;
   const appUrl = (process.env.APP_URL || '').replace(/\/$/, '');
   const webhookUrl = customUrl || (appUrl ? `${appUrl}/api/telegram/webhook` : '');
 
@@ -156,7 +156,7 @@ apiRouter.post('/telegram/set-webhook', async (req: Request, res: Response) => {
     return;
   }
 
-  const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET || req.body.secretToken || undefined;
+  const secretToken = process.env.TELEGRAM_WEBHOOK_SECRET || undefined;
   const result = await telegramService.setWebhook(webhookUrl, secretToken);
 
   res.json({
