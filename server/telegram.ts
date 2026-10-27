@@ -24,170 +24,81 @@ export class TelegramService {
     return Boolean(this.token && this.token.length > 10 && this.token.includes(':'));
   }
 
-  // Real getMe API call
-  public async getMe(): Promise<{ ok: boolean; result?: TelegramBotInfo; description?: string; error_code?: number }> {
+  // Centralized Telegram API request with a bounded timeout.
+  private async apiRequest<T = any>(method: string, payload?: Record<string, unknown>): Promise<T> {
     if (!this.isTokenConfigured()) {
-      return {
-        ok: false,
-        description: 'TELEGRAM_BOT_TOKEN is not configured in the server environment variables.',
-      };
+      return { ok: false, description: 'Bot token not configured' } as T;
     }
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 12000);
     try {
-      const response = await fetch(`${this.baseUrl}/getMe`);
-      const data = await response.json() as { ok: boolean; result?: TelegramBotInfo; description?: string; error_code?: number };
-      return data;
-    } catch (err) {
-      return {
-        ok: false,
-        description: err instanceof Error ? err.message : 'Network error connecting to Telegram Bot API',
-      };
-    }
-  }
-
-  // Real setWebhook API call
-  public async setWebhook(webhookUrl: string, secretToken?: string): Promise<{ ok: boolean; description?: string; result?: boolean }> {
-    if (!this.isTokenConfigured()) {
-      return {
-        ok: false,
-        description: 'TELEGRAM_BOT_TOKEN is not configured.',
-      };
-    }
-
-    try {
-      const payload: Record<string, any> = {
-        url: webhookUrl,
-        allowed_updates: ['message', 'callback_query'],
-      };
-
-      if (secretToken) {
-        payload.secret_token = secretToken;
+      const response = await fetch(`${this.baseUrl}/${method}`, {
+        method: payload ? 'POST' : 'GET',
+        headers: payload ? { 'Content-Type': 'application/json' } : undefined,
+        body: payload ? JSON.stringify(payload) : undefined,
+        signal: controller.signal,
+      });
+      const result = await response.json() as T;
+      if (!response.ok) {
+        console.error(`Telegram ${method} HTTP ${response.status}`);
       }
-
-      const response = await fetch(`${this.baseUrl}/setWebhook`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      return await response.json() as { ok: boolean; description?: string; result?: boolean };
-    } catch (err) {
-      return {
-        ok: false,
-        description: err instanceof Error ? err.message : 'Failed to call setWebhook',
-      };
+      return result;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(`Telegram ${method} request failed: ${detail}`);
+      return { ok: false, description: `Telegram ${method} failed: ${detail}` } as T;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 
-  // Real getWebhookInfo API call
+  public async getMe(): Promise<{ ok: boolean; result?: TelegramBotInfo; description?: string; error_code?: number }> {
+    return this.apiRequest('getMe');
+  }
+
+  public async setWebhook(webhookUrl: string, secretToken?: string): Promise<{ ok: boolean; description?: string; result?: boolean }> {
+    const payload: Record<string, unknown> = {
+      url: webhookUrl,
+      allowed_updates: ['message', 'callback_query'],
+    };
+    if (secretToken) payload.secret_token = secretToken;
+    return this.apiRequest('setWebhook', payload);
+  }
+
   public async getWebhookInfo(): Promise<{ ok: boolean; result?: TelegramWebhookInfo; description?: string }> {
-    if (!this.isTokenConfigured()) {
-      return {
-        ok: false,
-        description: 'TELEGRAM_BOT_TOKEN is not configured.',
-      };
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/getWebhookInfo`);
-      return await response.json() as { ok: boolean; result?: TelegramWebhookInfo; description?: string };
-    } catch (err) {
-      return {
-        ok: false,
-        description: err instanceof Error ? err.message : 'Failed to call getWebhookInfo',
-      };
-    }
+    return this.apiRequest('getWebhookInfo');
   }
 
-  // Real deleteWebhook API call
   public async deleteWebhook(): Promise<{ ok: boolean; description?: string }> {
-    if (!this.isTokenConfigured()) {
-      return {
-        ok: false,
-        description: 'TELEGRAM_BOT_TOKEN is not configured.',
-      };
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/deleteWebhook`, {
-        method: 'POST',
-      });
-      return await response.json() as { ok: boolean; description?: string };
-    } catch (err) {
-      return {
-        ok: false,
-        description: err instanceof Error ? err.message : 'Failed to call deleteWebhook',
-      };
-    }
+    return this.apiRequest('deleteWebhook', {});
   }
 
-  // Send Message
   public async sendMessage(chatId: number | string, text: string, replyMarkup?: TelegramInlineKeyboardMarkup): Promise<any> {
-    if (!this.isTokenConfigured()) {
-      console.warn('Cannot send Telegram message: bot token not configured.');
-      return { ok: false, description: 'Bot token not configured' };
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text,
-          parse_mode: 'HTML',
-          reply_markup: replyMarkup,
-        }),
-      });
-      return await response.json();
-    } catch (err) {
-      console.error('Error sending Telegram message:', err);
-      return { ok: false, error: err };
-    }
+    return this.apiRequest('sendMessage', {
+      chat_id: chatId,
+      text,
+      parse_mode: 'HTML',
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+    });
   }
 
-  // Edit Message Text
   public async editMessageText(chatId: number | string, messageId: number, text: string, replyMarkup?: TelegramInlineKeyboardMarkup): Promise<any> {
-    if (!this.isTokenConfigured()) {
-      return { ok: false, description: 'Bot token not configured' };
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/editMessageText`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          message_id: messageId,
-          text,
-          parse_mode: 'HTML',
-          reply_markup: replyMarkup,
-        }),
-      });
-      return await response.json();
-    } catch (err) {
-      console.error('Error editing Telegram message text:', err);
-      return { ok: false, error: err };
-    }
+    return this.apiRequest('editMessageText', {
+      chat_id: chatId,
+      message_id: messageId,
+      text,
+      parse_mode: 'HTML',
+      ...(replyMarkup ? { reply_markup: replyMarkup } : {}),
+    });
   }
 
-  // Answer Callback Query
   public async answerCallbackQuery(callbackQueryId: string, text?: string, showAlert: boolean = false): Promise<any> {
-    if (!this.isTokenConfigured()) return;
-
-    try {
-      await fetch(`${this.baseUrl}/answerCallbackQuery`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          callback_query_id: callbackQueryId,
-          text,
-          show_alert: showAlert,
-        }),
-      });
-    } catch (err) {
-      console.error('Error answering callback query:', err);
-    }
+    return this.apiRequest('answerCallbackQuery', {
+      callback_query_id: callbackQueryId,
+      ...(text ? { text } : {}),
+      show_alert: showAlert,
+    });
   }
 
   /**
@@ -380,7 +291,7 @@ export class TelegramService {
       const messageId = cq.message?.message_id;
 
       // Always answer callback query to remove Telegram loading spinner
-      await this.answerCallbackQuery(cq.id);
+      void this.answerCallbackQuery(cq.id);
 
       if (!chatId || !messageId) {
         return { handled: true };
